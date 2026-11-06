@@ -2,15 +2,15 @@ import { consola } from 'consola';
 import dayjs from 'dayjs';
 import dotenv from 'dotenv';
 import { Client, type DatabaseObjectResponse } from '@notionhq/client';
-import { type CreatePageParameters } from '@notionhq/client/build/src/api-endpoints';
+import { type CreatePageParameters, type PageObjectResponse, type UpdatePageParameters } from '@notionhq/client/build/src/api-endpoints';
 import scrapyDouban from './handle-douban';
 import { getDataSourceId, sleep, buildPropertyValue } from './utils';
-import { PropertyTypeMap, EMOJI } from './const';
+import { PropertyTypeMap, EMOJI, STATUS_TEXT } from './const';
 import DB_PROPERTIES from '../cols.json';
 import {
   ItemCategory,
+  NotionPropTypesEnum,
   type FeedItem,
-  type NotionUrlPropType,
   type DB_PROPERTIES_KEYS,
   type FailedItem,
 } from './types';
@@ -107,33 +107,63 @@ async function syncNotionDB(categorizedFeeds: FeedItem[], category: ItemCategory
     process.exit(1);
   });
 
-  const alreadyInsertedItems = new Set(queryItems.results.map((i) => {
-    if ('properties' in i) {
-      return (i.properties[DB_PROPERTIES.ITEM_LINK] as NotionUrlPropType).url;
+  const existingItems = new Map<string, ExistingPage>();
+  queryItems.results.forEach((item) => {
+    if (item.object !== 'page' || !('properties' in item)) {
+      return;
     }
-    return;
-  }).filter(v => v));
+    const linkProperty = item.properties[DB_PROPERTIES.ITEM_LINK];
+    const link = linkProperty.type === 'url' ? linkProperty.url : null;
+    if (link) {
+      existingItems.set(link, {
+        pageId: item.id,
+        properties: item.properties,
+      });
+    }
+  });
 
   const newFeeds = categorizedFeeds.filter((item) => {
-    return !alreadyInsertedItems.has(item.link);
+    return !existingItems.has(item.link);
   });
 
   consola.info(`There are total ${newFeeds.length} new ${category} item(s) need to insert.`);
 
   const failedItems: FailedItem[] = [];
 
-  for (const newFeedItem of newFeeds) {
+  for (const feedItem of categorizedFeeds) {
+    const existing = existingItems.get(feedItem.link);
+    if (existing) {
+      const changes = buildChangedProperties(feedItem, category, existing.properties);
+      if (Object.keys(changes).length === 0) {
+        continue;
+      }
+      try {
+        await notion.pages.update({
+          page_id: existing.pageId,
+          properties: changes,
+        });
+        consola.success(
+          `Updated ${STATUS_TEXT[category][feedItem.status]} for ${feedItem.link} in Notion database.`
+        );
+        await sleep(1000);
+      } catch (error) {
+        consola.error(`Failed to update ${feedItem.link} in Notion database with error: `, error);
+      }
+      continue;
+    }
+
     try {
-      const itemData = await scrapyDouban(newFeedItem.link, category);
-      itemData[DB_PROPERTIES.ITEM_LINK] = newFeedItem.link;
-      itemData[DB_PROPERTIES.RATING] = newFeedItem.rating;
-      itemData[DB_PROPERTIES.RATING_DATE] = dayjs(newFeedItem.time).format('YYYY-MM-DD');
-      itemData[DB_PROPERTIES.COMMENTS] = newFeedItem.comment;
+      const itemData = await scrapyDouban(feedItem.link, category);
+      itemData[DB_PROPERTIES.ITEM_LINK] = feedItem.link;
+      itemData[DB_PROPERTIES.RATING] = feedItem.rating;
+      itemData[DB_PROPERTIES.RATING_DATE] = dayjs(feedItem.time).format('YYYY-MM-DD');
+      itemData[DB_PROPERTIES.COMMENTS] = feedItem.comment;
+      itemData[DB_PROPERTIES.STATUS] = STATUS_TEXT[category][feedItem.status];
       const successful = await addItemToNotion(itemData, category);
       if (!successful) {
         failedItems.push({
-          link: newFeedItem.link,
-          title: itemData.title as string,
+          link: feedItem.link,
+          title: itemData[DB_PROPERTIES.NAME] as string,
         });
       }
       await sleep(1000);
@@ -150,6 +180,89 @@ async function syncNotionDB(categorizedFeeds: FeedItem[], category: ItemCategory
   consola.success(`${category} feeds done.`);
   consola.log('====================');
   return failedItems;
+}
+
+type NotionPageProperties = PageObjectResponse['properties'];
+type NotionPropertyValue = NotionPageProperties[string];
+type PageUpdateProperties = NonNullable<UpdatePageParameters['properties']>;
+
+type ExistingPage = {
+  pageId: string;
+  properties: NotionPageProperties;
+};
+
+/**
+ * Normalizes a Notion property value into a plain string so it can be compared
+ * with the value parsed from the Douban RSS feed.
+ *
+ * @param {NotionPropertyValue} property - the property value returned by the Notion API
+ * @return {string} the normalized value
+ */
+function normalizeNotionProperty(property: NotionPropertyValue): string {
+  switch (property.type) {
+    case 'select':
+      return property.select?.name ?? '';
+    case 'multi_select':
+      return property.multi_select.map((option) => option.name).join(', ');
+    case 'rich_text':
+      return property.rich_text.map((text) => text.plain_text).join('');
+    case 'title':
+      return property.title.map((text) => text.plain_text).join('');
+    case 'date':
+      return property.date?.start ?? '';
+    case 'number':
+      return property.number === null ? '' : String(property.number);
+    case 'url':
+      return property.url ?? '';
+    default:
+      return '';
+  }
+}
+
+/**
+ * Builds the Notion properties that need to be updated for an already inserted
+ * item. Only mutable feed fields are compared, and empty feed values never
+ * clear existing data.
+ *
+ * @param {FeedItem} feed - the feed item parsed from the Douban RSS
+ * @param {ItemCategory} category - the category of the feed item
+ * @param {NotionPageProperties} existingProperties - the page's current properties
+ * @return {PageUpdateProperties} the properties that changed, ready for pages.update
+ */
+function buildChangedProperties(
+  feed: FeedItem,
+  category: ItemCategory,
+  existingProperties: NotionPageProperties,
+): PageUpdateProperties {
+  const changes: PageUpdateProperties = {};
+  const candidates: [string, NotionPropTypesEnum, string | number | null][] = [
+    [DB_PROPERTIES.STATUS, PropertyTypeMap.STATUS, STATUS_TEXT[category][feed.status]],
+    [DB_PROPERTIES.RATING, PropertyTypeMap.RATING, feed.rating],
+    [DB_PROPERTIES.RATING_DATE, PropertyTypeMap.RATING_DATE, dayjs(feed.time).format('YYYY-MM-DD')],
+    [DB_PROPERTIES.COMMENTS, PropertyTypeMap.COMMENTS, feed.comment],
+  ];
+
+  for (const [propertyName, type, value] of candidates) {
+    const existingProperty = existingProperties[propertyName];
+    if (!existingProperty) {
+      // the column does not exist in this database
+      continue;
+    }
+    if (value === null || value === undefined || value === '') {
+      // never clear an existing value from feed data
+      continue;
+    }
+    if (normalizeNotionProperty(existingProperty) !== String(value)) {
+      const built = buildPropertyValue(value, type, propertyName);
+      if (built) {
+        // buildPropertyValue returns the local simplified shapes; they mirror
+        // the Notion request shapes, which the SDK types more strictly.
+        changes[propertyName] = built as unknown as PageUpdateProperties[string];
+      }
+    }
+  }
+
+  return changes;
 }
 
 /**
