@@ -134,6 +134,13 @@ GitHub 免费用户的开源仓库，actions 暂时是完全免费，也不计�
 
 [查看 workflow 运行结果 ->](https://github.com/bambooom/douban-backup/actions/workflows/sync-rss.js.yml)
 
+## 回填历史数据
+
+豆瓣 RSS 只保留最近 10 条，定时任务停跑或一次标记过多时会漏数据。回填脚本通过豆瓣移动端 API 读取全量标记（不需要登录），按条目链接去重后写入 Notion：已存在的页面只更新状态/评分/短评，不存在的才新建。
+
+- 本地：配置 `.env` 后运行 `npm run backfill`（可加 `--dry-run` 只统计数量）
+- GitHub Actions：Actions → Backfill → Run workflow
+
 ## 同时同步标记到 NeoDB
 
 > [NeoDB 文档](https://neodb.social/developer/)
