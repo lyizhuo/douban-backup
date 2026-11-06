@@ -163,7 +163,7 @@ async function syncNotionDB(categorizedFeeds: FeedItem[], category: ItemCategory
       if (!successful) {
         failedItems.push({
           link: feedItem.link,
-          title: itemData.title as string,
+          title: itemData[DB_PROPERTIES.NAME] as string,
         });
       }
       await sleep(1000);

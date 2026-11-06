@@ -43,6 +43,27 @@ export function sleep(ms: number): Promise<void> {
   return new Promise((r) => setTimeout(r, ms));
 }
 
+const RICH_TEXT_CONTENT_LIMIT = 2000;
+const RICH_TEXT_ITEM_LIMIT = 100;
+
+/**
+ * Splits a value into Notion rich text items. Each item is capped at the API
+ * limit of 2000 characters per text object.
+ *
+ * @param {unknown} value - the value to split
+ * @return {NotionRichTextPropType['rich_text']} the rich text items
+ */
+function splitRichText(value: unknown): NotionRichTextPropType['rich_text'] {
+  const content = typeof value === 'string' ? value : String(value ?? '');
+  const chunks = content.match(new RegExp(`[\\s\\S]{1,${RICH_TEXT_CONTENT_LIMIT}}`, 'g')) ?? [''];
+  return chunks.slice(0, RICH_TEXT_ITEM_LIMIT).map((chunk) => ({
+    type: 'text' as const,
+    text: {
+      content: chunk,
+    },
+  }));
+}
+
 /**
  * Generates the value for a property based on the given parameters, ready to insert
  * into notion database.
@@ -105,14 +126,7 @@ export function buildPropertyValue(value: any, type: NotionPropTypesEnum, key: s
     case NotionPropTypesEnum.RICH_TEXT:
       return {
         type: NotionPropTypesEnum.RICH_TEXT,
-        rich_text: [
-          {
-            type: 'text',
-            text: {
-              content: value || '',
-            },
-          },
-        ],
+        rich_text: splitRichText(value),
       } as NotionRichTextPropType;
     case NotionPropTypesEnum.NUMBER:
       return {
