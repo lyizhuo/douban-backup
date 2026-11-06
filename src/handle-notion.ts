@@ -159,6 +159,10 @@ async function syncNotionDB(categorizedFeeds: FeedItem[], category: ItemCategory
       itemData[DB_PROPERTIES.RATING_DATE] = dayjs(feedItem.time).format('YYYY-MM-DD');
       itemData[DB_PROPERTIES.COMMENTS] = feedItem.comment;
       itemData[DB_PROPERTIES.STATUS] = STATUS_TEXT[category][feedItem.status];
+      if (itemData[DB_PROPERTIES.DOUBAN_RATING] == null && feedItem.doubanRating) {
+        // the backfill gets the score from the API, the RSS sync from the page
+        itemData[DB_PROPERTIES.DOUBAN_RATING] = feedItem.doubanRating;
+      }
       const successful = await addItemToNotion(itemData, category);
       if (!successful) {
         failedItems.push({
@@ -258,6 +262,22 @@ function buildChangedProperties(
         // buildPropertyValue returns the local simplified shapes; they mirror
         // the Notion request shapes, which the SDK types more strictly.
         changes[propertyName] = built as unknown as PageUpdateProperties[string];
+      }
+    }
+  }
+
+  // The Douban score is a snapshot taken when the page is added: only fill it
+  // when the page has no value yet, never refresh an existing score.
+  if (feed.doubanRating) {
+    const ratingProperty = existingProperties[DB_PROPERTIES.DOUBAN_RATING];
+    if (ratingProperty && normalizeNotionProperty(ratingProperty) === '') {
+      const built = buildPropertyValue(
+        feed.doubanRating,
+        PropertyTypeMap.DOUBAN_RATING,
+        DB_PROPERTIES.DOUBAN_RATING,
+      );
+      if (built) {
+        changes[DB_PROPERTIES.DOUBAN_RATING] = built as unknown as PageUpdateProperties[string];
       }
     }
   }

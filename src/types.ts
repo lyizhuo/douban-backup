@@ -26,6 +26,7 @@ export type FeedItem = {
   id: string;
   link: string;
   rating: number | null;
+  doubanRating?: number | null;
   comment: string | null;
   time: string;
   status: ItemStatus;
