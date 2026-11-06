@@ -81,20 +81,49 @@ export default async function scrapyDouban(link: string, category: ItemCategory)
     throw new Error('Failed to bypass Douban security page. Might need a proxy or manual login.');
   }
 
+  let itemData: {
+    [key: string]: string | string[] | number | null | undefined;
+  };
   switch (category) {
     case ItemCategory.Movie:
-      return buildMovieItem(doc);
+      itemData = buildMovieItem(doc);
+      break;
     case ItemCategory.Music:
-      return buildMusicItem(doc);
+      itemData = buildMusicItem(doc);
+      break;
     case ItemCategory.Book:
-      return buildBookItem(doc);
+      itemData = buildBookItem(doc);
+      break;
     case ItemCategory.Game:
-      return buildGameItem(doc);
+      itemData = buildGameItem(doc);
+      break;
     case ItemCategory.Drama:
-      return buildDramaItem(doc);
+      itemData = buildDramaItem(doc);
+      break;
     default:
-      return {}
+      itemData = {};
   }
+
+  const doubanRating = getDoubanRating(doc);
+  if (doubanRating !== undefined) {
+    itemData[DB_PROPERTIES.DOUBAN_RATING] = doubanRating;
+  }
+  return itemData;
+}
+
+/**
+ * Extracts the public Douban rating (0-10) from a subject page.
+ *
+ * @param {Document} doc - the parsed subject page
+ * @return {number | undefined} the rating, or undefined when the page has none
+ */
+function getDoubanRating(doc: Document): number | undefined {
+  const text = doc.querySelector('[property="v:average"]')?.textContent?.trim();
+  if (!text) {
+    return undefined;
+  }
+  const rating = Number(text);
+  return Number.isFinite(rating) && rating > 0 ? rating : undefined;
 }
 
 const ImgSelector = '#mainpic img';

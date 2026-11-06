@@ -72,6 +72,7 @@ export const PropertyTypeMap: Record<DB_PROPERTIES_KEYS, NotionPropTypesEnum> = 
   COVER: NotionPropTypesEnum.FILES,
   RATING: NotionPropTypesEnum.MULTI_SELECT,
   RATING_DATE: NotionPropTypesEnum.DATE,
+  DOUBAN_RATING: NotionPropTypesEnum.NUMBER,
   COMMENTS: NotionPropTypesEnum.RICH_TEXT,
   STATUS: NotionPropTypesEnum.SELECT,
   YEAR: NotionPropTypesEnum.NUMBER,

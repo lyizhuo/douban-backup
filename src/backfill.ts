@@ -24,6 +24,7 @@ type DoubanInterest = {
     title: string;
     url: string;
     type: string;
+    rating?: { value: number } | null;
   };
 };
 
@@ -143,6 +144,7 @@ function toFeedItems(interests: DoubanInterest[], category: ItemCategory): FeedI
       id: interest.subject.id,
       link: interest.subject.url,
       rating: interest.rating?.value || null,
+      doubanRating: interest.subject.rating?.value || null,
       comment: interest.comment || null,
       // keep the China date of the mark regardless of the runner timezone
       time: `${interest.create_time.slice(0, 10)}T12:00:00.000Z`,
