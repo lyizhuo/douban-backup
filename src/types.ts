@@ -38,6 +38,7 @@ export enum NotionPropTypesEnum {
   FILES = 'files',
   DATE = 'date',
   MULTI_SELECT = 'multi_select',
+  SELECT = 'select',
   NUMBER = 'number',
   URL = 'url',
 };
@@ -93,6 +94,14 @@ export type NotionMultiSelectPropType = {
   }[];
 };
 
+export type NotionSelectPropType = {
+  id?: string;
+  type: NotionPropTypesEnum.SELECT;
+  select: {
+    name: string;
+  } | null;
+};
+
 export type NotionNumberPropType = {
   id?: string;
   type: NotionPropTypesEnum.NUMBER;
@@ -111,6 +120,7 @@ export type NotionColPropTypes =
   | NotionFilesPropType
   | NotionDatePropType
   | NotionMultiSelectPropType
+  | NotionSelectPropType
   | NotionNumberPropType
   | NotionUrlPropType;
 

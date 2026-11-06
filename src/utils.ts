@@ -8,6 +8,7 @@ import {
   type NotionFilesPropType,
   type NotionDatePropType,
   type NotionMultiSelectPropType,
+  type NotionSelectPropType,
   type NotionNumberPropType,
   type NotionUrlPropType,
   type NotionColPropTypes,
@@ -84,6 +85,11 @@ export function buildPropertyValue(value: any, type: NotionPropTypesEnum, key: s
           start: value,
         },
       } as NotionDatePropType;
+    case NotionPropTypesEnum.SELECT:
+      return {
+        type: NotionPropTypesEnum.SELECT,
+        select: value ? { name: value } : null,
+      } as NotionSelectPropType;
     case NotionPropTypesEnum.MULTI_SELECT:
       return key === DB_PROPERTIES.RATING
         ? {

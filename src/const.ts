@@ -1,4 +1,4 @@
-import { type DB_PROPERTIES_KEYS, NotionPropTypesEnum, ItemStatus } from './types';
+import { type DB_PROPERTIES_KEYS, NotionPropTypesEnum, ItemCategory, ItemStatus } from './types';
 
 export const ALL_STATUS = /^(?:最近)?(看过|听过|读过|玩过|在看|在听|在读|在玩|想看|想听|想读|想玩)/;
 
@@ -34,6 +34,34 @@ export const ListenState = {
   '想听': ItemStatus.Wishlist,
 };
 
+export const STATUS_TEXT: Record<ItemCategory, Record<ItemStatus, string>> = {
+  [ItemCategory.Movie]: {
+    [ItemStatus.Wishlist]: '想看',
+    [ItemStatus.Progress]: '在看',
+    [ItemStatus.Complete]: '看过',
+  },
+  [ItemCategory.Drama]: {
+    [ItemStatus.Wishlist]: '想看',
+    [ItemStatus.Progress]: '在看',
+    [ItemStatus.Complete]: '看过',
+  },
+  [ItemCategory.Book]: {
+    [ItemStatus.Wishlist]: '想读',
+    [ItemStatus.Progress]: '在读',
+    [ItemStatus.Complete]: '读过',
+  },
+  [ItemCategory.Music]: {
+    [ItemStatus.Wishlist]: '想听',
+    [ItemStatus.Progress]: '在听',
+    [ItemStatus.Complete]: '听过',
+  },
+  [ItemCategory.Game]: {
+    [ItemStatus.Wishlist]: '想玩',
+    [ItemStatus.Progress]: '在玩',
+    [ItemStatus.Complete]: '玩过',
+  },
+};
+
 export const PropertyTypeMap: Record<DB_PROPERTIES_KEYS, NotionPropTypesEnum> = {
   POSTER: NotionPropTypesEnum.FILES,
   MOVIE_TITLE: NotionPropTypesEnum.TITLE,
@@ -45,6 +73,7 @@ export const PropertyTypeMap: Record<DB_PROPERTIES_KEYS, NotionPropTypesEnum> = 
   RATING: NotionPropTypesEnum.MULTI_SELECT,
   RATING_DATE: NotionPropTypesEnum.DATE,
   COMMENTS: NotionPropTypesEnum.RICH_TEXT,
+  STATUS: NotionPropTypesEnum.SELECT,
   YEAR: NotionPropTypesEnum.NUMBER,
   DIRECTORS: NotionPropTypesEnum.RICH_TEXT,
   SCREENWRITERS: NotionPropTypesEnum.RICH_TEXT,
