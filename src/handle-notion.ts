@@ -57,7 +57,7 @@ export default async function handleNotion(feeds: FeedItem[]): Promise<void> {
       }
     } catch (error) {
       consola.error(`Failed to handle ${category} feeds. `, error);
-      process.exit(1);
+      throw error;
     }
   }
 
@@ -66,7 +66,7 @@ export default async function handleNotion(feeds: FeedItem[]): Promise<void> {
     for (const item of AllFailedItems) {
       consola.warn(`${item.title}: ${item.link}`);
     }
-    process.exit(1);
+    throw new Error(`Failed to handle ${AllFailedItems.length} feed(s) in Notion.`);
   }
 }
 
@@ -104,7 +104,7 @@ async function syncNotionDB(categorizedFeeds: FeedItem[], category: ItemCategory
     },
   }).catch((error) => {
     consola.error(`Failed to query ${category} database to check already inserted items. `, error);
-    process.exit(1);
+    throw error;
   });
 
   const existingItems = new Map<string, ExistingPage>();

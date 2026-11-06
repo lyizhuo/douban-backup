@@ -19,4 +19,7 @@ async function main(): Promise<void> {
   await handleNeodb(normalizedFeeds);
 }
 
-main();
+main().catch((error) => {
+  consola.error(error);
+  process.exit(1);
+});
